@@ -1,0 +1,1471 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Absensi Digital Santri</title>
+    <!-- Tailwind CSS for modern, responsive styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#065f46',      /* Hijau tua */
+                        'primary-light': '#10b981',/* Hijau terang */
+                        secondary: '#047857',
+                        cream: '#f9fafb',        /* Background bersih */
+                        accent: '#f59e0b',       /* Kuning aksen */
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- QR Code Scanner Library (Html5-qrcode) -->
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <!-- QRCode Generator Library -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <style>
+        /* Custom scrollbar and mobile optimization */
+        body {
+            background-color: #f3f4f6;
+            color: #1f2937;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            padding-bottom: 70px; /* Space for bottom nav */
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        /* Modal transition */
+        .modal {
+            transition: opacity 0.25s ease;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- Top Header -->
+    <header class="bg-primary text-white shadow-md sticky top-0 z-40">
+        <div class="max-w-md mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+                <div class="bg-white text-primary p-1.5 rounded-lg shadow">
+                    <i class="fa-solid fa-mosque text-xl"></i>
+                </div>
+                <div>
+                    <h1 id="header-institution" class="font-bold text-base leading-tight">Pondok Pesantren</h1>
+                    <p id="header-system-name" class="text-xs text-emerald-200">Absensi Digital Santri</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-2">
+                <span id="header-date-badge" class="text-xs bg-emerald-800 px-2.5 py-1 rounded-full border border-emerald-700">--</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="max-w-md mx-auto w-full p-4 flex-grow mb-12">
+
+        <!-- 1. DASHBOARD PAGE -->
+        <section id="page-dashboard" class="page-section space-y-4">
+            <!-- Attendance Status Banner -->
+            <div id="attendance-status-banner" class="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center justify-between">
+                <div>
+                    <span id="current-day-badge" class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-800">Memuat...</span>
+                    <h2 id="today-status-title" class="text-lg font-bold mt-1">Status Hari Ini</h2>
+                    <p id="today-status-desc" class="text-xs text-gray-500">Mengecek jadwal absensi...</p>
+                </div>
+                <div id="today-status-icon" class="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 text-xl">
+                    <i class="fa-solid fa-calendar"></i>
+                </div>
+            </div>
+
+            <!-- Quick Action: Scan Absen -->
+            <div class="bg-gradient-to-r from-primary to-secondary rounded-2xl p-5 text-white shadow-md relative overflow-hidden flex items-center justify-between">
+                <div class="relative z-10 space-y-1">
+                    <h3 class="font-bold text-lg">Scan QR Kehadiran</h3>
+                    <p class="text-xs text-emerald-100 max-w-[200px]">Arahkan kamera ke QR Code santri untuk mencatat kehadiran.</p>
+                    <button onclick="switchPage('scan')" class="mt-2 bg-white text-primary text-xs font-bold px-4 py-2 rounded-xl shadow hover:bg-emerald-50 transition active:scale-95 inline-flex items-center space-x-1.5">
+                        <i class="fa-solid fa-qrcode"></i>
+                        <span>BUKA SCANNER</span>
+                    </button>
+                </div>
+                <div class="text-white/20 text-6xl absolute right-2 -bottom-3 pointer-events-none">
+                    <i class="fa-solid fa-camera-rotate"></i>
+                </div>
+            </div>
+
+            <!-- Stats Grid -->
+            <div class="grid grid-cols-2 gap-3">
+                <div class="bg-white p-3.5 rounded-2xl shadow-sm border border-gray-100">
+                    <div class="flex items-center justify-between text-gray-500 mb-1">
+                        <span class="text-xs font-medium">Total Santri</span>
+                        <i class="fa-solid fa-users text-primary text-sm"></i>
+                    </div>
+                    <div id="stat-total-santri" class="text-2xl font-bold text-gray-800">0</div>
+                    <div class="text-[10px] text-gray-400 mt-0.5">Terdaftar di sistem</div>
+                </div>
+                <div class="bg-white p-3.5 rounded-2xl shadow-sm border border-gray-100">
+                    <div class="flex items-center justify-between text-gray-500 mb-1">
+                        <span class="text-xs font-medium">Hadir Hari Ini</span>
+                        <i class="fa-solid fa-user-check text-emerald-600 text-sm"></i>
+                    </div>
+                    <div id="stat-hadir-hari-ini" class="text-2xl font-bold text-emerald-600">0</div>
+                    <div id="stat-persen-hari-ini" class="text-[10px] text-gray-400 mt-0.5">0% dari total</div>
+                </div>
+                <div class="bg-white p-3.5 rounded-2xl shadow-sm border border-gray-100">
+                    <div class="flex items-center justify-between text-gray-500 mb-1">
+                        <span class="text-xs font-medium">Belum Hadir / Alpa</span>
+                        <i class="fa-solid fa-user-clock text-amber-500 text-sm"></i>
+                    </div>
+                    <div id="stat-belum-hadir" class="text-2xl font-bold text-amber-500">0</div>
+                    <div class="text-[10px] text-gray-400 mt-0.5">Sesuai jadwal aktif</div>
+                </div>
+                <div class="bg-white p-3.5 rounded-2xl shadow-sm border border-gray-100">
+                    <div class="flex items-center justify-between text-gray-500 mb-1">
+                        <span class="text-xs font-medium">Jadwal Minggu Ini</span>
+                        <i class="fa-solid fa-calendar-check text-blue-500 text-sm"></i>
+                    </div>
+                    <div class="text-2xl font-bold text-blue-600">4 Hari</div>
+                    <div class="text-[10px] text-gray-400 mt-0.5">Jum, Sab, Ahd, Sel</div>
+                </div>
+            </div>
+
+            <!-- Monthly Summary Card -->
+            <div class="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 space-y-3">
+                <div class="flex justify-between items-center">
+                    <h4 class="font-bold text-sm text-gray-800 flex items-center space-x-1.5">
+                        <i class="fa-solid fa-chart-pie text-primary"></i>
+                        <span>Ringkasan Bulan Berjalan</span>
+                    </h4>
+                    <span id="dashboard-current-month-label" class="text-xs text-gray-500 font-medium bg-gray-100 px-2 py-0.5 rounded">--</span>
+                </div>
+                <div class="bg-gray-50 p-3 rounded-xl space-y-2 text-xs">
+                    <div class="flex justify-between">
+                        <span class="text-gray-500">Total Sesi Absensi Bulan Ini:</span>
+                        <span id="dash-total-sesi" class="font-bold text-gray-800">0</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-500">Akumulasi Kehadiran:</span>
+                        <span id="dash-total-hadir-bulan" class="font-bold text-emerald-600">0</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-500">Persentase Kehadiran Rata-rata:</span>
+                        <span id="dash-avg-persen" class="font-bold text-blue-600">0%</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. SCAN ABSEN PAGE -->
+        <section id="page-scan" class="page-section hidden space-y-4">
+            <div class="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 space-y-3">
+                <div class="flex justify-between items-center">
+                    <h2 class="font-bold text-base text-gray-800 flex items-center space-x-2">
+                        <i class="fa-solid fa-qrcode text-primary"></i>
+                        <span>Scan QR Code Santri</span>
+                    </h2>
+                    <span id="scan-status-badge" class="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-medium">Kamera Standby</span>
+                </div>
+
+                <!-- Camera Container -->
+                <div class="relative bg-black rounded-xl overflow-hidden aspect-square flex items-center justify-center">
+                    <div id="reader" class="w-full h-full"></div>
+                    <div id="scanner-placeholder" class="absolute inset-0 flex flex-col items-center justify-center text-white/70 space-y-2 bg-gray-900">
+                        <i class="fa-solid fa-camera text-4xl animate-pulse"></i>
+                        <p class="text-xs">Memuat kamera...</p>
+                    </div>
+                </div>
+
+                <div class="flex space-x-2">
+                    <button onclick="initScanner()" class="flex-1 bg-primary text-white text-xs font-semibold py-2.5 rounded-xl shadow hover:bg-emerald-800 transition flex items-center justify-center space-x-1.5">
+                        <i class="fa-solid fa-play"></i>
+                        <span>Mulai Kamera</span>
+                    </button>
+                    <button onclick="stopScanner()" class="flex-1 bg-gray-200 text-gray-700 text-xs font-semibold py-2.5 rounded-xl shadow hover:bg-gray-300 transition flex items-center justify-center space-x-1.5">
+                        <i class="fa-solid fa-stop"></i>
+                        <span>Matikan Kamera</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Manual Code Input Fallback -->
+            <div class="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 space-y-3">
+                <h3 class="font-bold text-xs text-gray-700 uppercase tracking-wider">Input Kode Manual (Alternatif)</h3>
+                <div class="flex space-x-2">
+                    <input type="text" id="manual-code-input" placeholder="Contoh: PPAD001" class="flex-grow text-xs border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-primary uppercase">
+                    <button onclick="processManualScan()" class="bg-primary text-white text-xs px-4 py-2.5 rounded-xl font-semibold hover:bg-emerald-800 transition">Absen</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. DATA SANTRI PAGE -->
+        <section id="page-santri" class="page-section hidden space-y-4">
+            <div class="flex justify-between items-center">
+                <h2 class="font-bold text-base text-gray-800 flex items-center space-x-2">
+                    <i class="fa-solid fa-users text-primary"></i>
+                    <span>Data Santri (<span id="santri-count-label">0</span>)</span>
+                </h2>
+                <button onclick="openSantriModal()" class="bg-primary text-white text-xs font-semibold px-3.5 py-2 rounded-xl shadow hover:bg-emerald-800 transition flex items-center space-x-1">
+                    <i class="fa-solid fa-user-plus"></i>
+                    <span>Tambah Santri</span>
+                </button>
+            </div>
+
+            <!-- Search Bar -->
+            <div class="relative">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+                    <i class="fa-solid fa-search text-xs"></i>
+                </span>
+                <input type="text" id="santri-search-input" oninput="renderSantriList()" placeholder="Cari nama, kode, kelas, atau kamar..." class="w-full text-xs pl-9 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-primary shadow-sm">
+            </div>
+
+            <!-- Santri List Container -->
+            <div id="santri-list-container" class="space-y-2.5">
+                <!-- Dynamically populated -->
+            </div>
+        </section>
+
+        <!-- 4. REKAP PAGE -->
+        <section id="page-rekap" class="page-section hidden space-y-4">
+            <div class="flex justify-between items-center">
+                <h2 class="font-bold text-base text-gray-800 flex items-center space-x-2">
+                    <i class="fa-solid fa-chart-bar text-primary"></i>
+                    <span>Rekap Absensi</span>
+                </h2>
+                <!-- Month Selector -->
+                <select id="rekap-month-select" onchange="changeRekapMonth()" class="text-xs bg-white border border-gray-200 rounded-xl px-3 py-2 font-medium focus:outline-none focus:border-primary shadow-sm">
+                    <!-- Populated dynamically -->
+                </select>
+            </div>
+
+            <!-- Tabs inside Rekap -->
+            <div class="flex bg-gray-200 p-1 rounded-xl text-xs font-semibold">
+                <button onclick="switchRekapTab('harian')" id="btn-rekap-harian" class="flex-1 py-2 rounded-lg bg-white text-primary shadow-sm transition">Rekap Santri</button>
+                <button onclick="switchRekapTab('tidak-hadir')" id="btn-rekap-tidak-hadir" class="flex-1 py-2 rounded-lg text-gray-600 transition">Daftar Tidak Hadir</button>
+                <button onclick="switchRekapTab('riwayat')" id="btn-rekap-riwayat" class="flex-1 py-2 rounded-lg text-gray-600 transition">Riwayat Log</button>
+            </div>
+
+            <!-- Sub-tab 1: Rekap Santri (Bulanan/Jadwal) -->
+            <div id="rekap-tab-harian-content" class="space-y-3">
+                <div class="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 space-y-3">
+                    <div class="flex justify-between items-center border-b pb-2">
+                        <span class="text-xs font-bold text-gray-700">Statistik Bulan Ini</span>
+                        <button onclick="openResetModal()" class="text-[10px] bg-red-50 text-red-600 font-semibold px-2.5 py-1 rounded-lg border border-red-200 hover:bg-red-100 transition">
+                            <i class="fa-solid fa-rotate-left mr-1"></i>Reset Bulanan
+                        </button>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 text-xs">
+                        <div class="bg-gray-50 p-2.5 rounded-xl">
+                            <span class="text-gray-400 block text-[10px]">Tertinggi Kehadiran</span>
+                            <span id="rekap-top-santri" class="font-bold text-gray-800 truncate block mt-0.5">-</span>
+                        </div>
+                        <div class="bg-gray-50 p-2.5 rounded-xl">
+                            <span class="text-gray-400 block text-[10px]">Paling Banyak Alpa</span>
+                            <span id="rekap-low-santri" class="font-bold text-gray-800 truncate block mt-0.5">-</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Santri Rekap Table / List -->
+                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div class="p-3 bg-gray-50 border-b border-gray-100 font-bold text-xs text-gray-700">
+                        Daftar Rekap Kehadiran Santri
+                    </div>
+                    <div id="rekap-santri-list" class="divide-y divide-gray-100">
+                        <!-- Dynamically populated -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sub-tab 2: Daftar Tidak Hadir -->
+            <div id="rekap-tab-tidak-hadir-content" class="space-y-3 hidden">
+                <div class="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 space-y-3">
+                    <div class="flex justify-between items-center">
+                        <label class="text-xs font-bold text-gray-700">Pilih Tanggal Jadwal Absensi:</label>
+                        <select id="tidak-hadir-date-select" onchange="renderDaftarTidakHadir()" class="text-xs bg-gray-50 border border-gray-200 rounded-xl px-3 py-1.5 font-medium focus:outline-none focus:border-primary">
+                            <!-- Dynamically populated dates in month -->
+                        </select>
+                    </div>
+                </div>
+                <div id="tidak-hadir-container" class="space-y-3">
+                    <!-- Dynamically populated -->
+                </div>
+            </div>
+
+            <!-- Sub-tab 3: Riwayat Log -->
+            <div id="rekap-tab-riwayat-content" class="space-y-3 hidden">
+                <div class="relative">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+                        <i class="fa-solid fa-search text-xs"></i>
+                    </span>
+                    <input type="text" id="riwayat-search-input" oninput="renderRiwayatList()" placeholder="Cari nama santri di riwayat..." class="w-full text-xs pl-9 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-primary shadow-sm">
+                </div>
+                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div id="riwayat-list-container" class="divide-y divide-gray-100 max-h-[500px] overflow-y-auto">
+                        <!-- Dynamically populated -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 5. PENGATURAN PAGE -->
+        <section id="page-pengaturan" class="page-section hidden space-y-4">
+            <h2 class="font-bold text-base text-gray-800 flex items-center space-x-2">
+                <i class="fa-solid fa-gear text-primary"></i>
+                <span>Pengaturan Sistem</span>
+            </h2>
+
+            <!-- Identitas Lembaga -->
+            <div class="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 space-y-3">
+                <h3 class="font-bold text-xs text-gray-700 uppercase tracking-wider">Identitas Lembaga</h3>
+                <div class="space-y-2 text-xs">
+                    <div>
+                        <label class="block text-gray-500 mb-1">Nama Lembaga / Pondok</label>
+                        <input type="text" id="setting-institution" class="w-full border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:border-primary">
+                    </div>
+                    <div>
+                        <label class="block text-gray-500 mb-1">Nama Sistem</label>
+                        <input type="text" id="setting-system-name" class="w-full border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:border-primary">
+                    </div>
+                    <button onclick="saveSettings()" class="w-full bg-primary text-white font-semibold py-2.5 rounded-xl shadow hover:bg-emerald-800 transition">Simpan Perubahan</button>
+                </div>
+            </div>
+
+            <!-- Jadwal Absensi Info -->
+            <div class="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 space-y-2">
+                <h3 class="font-bold text-xs text-gray-700 uppercase tracking-wider">Jadwal Hari Absensi</h3>
+                <p class="text-xs text-gray-500">Sistem dikonfigurasi otomatis melakukan absensi pada 4 hari dalam seminggu:</p>
+                <div class="flex gap-1.5 pt-1">
+                    <span class="px-2.5 py-1 bg-emerald-50 text-primary font-bold text-xs rounded-lg border border-emerald-200">Jum'at</span>
+                    <span class="px-2.5 py-1 bg-emerald-50 text-primary font-bold text-xs rounded-lg border border-emerald-200">Sabtu</span>
+                    <span class="px-2.5 py-1 bg-emerald-50 text-primary font-bold text-xs rounded-lg border border-emerald-200">Ahad</span>
+                    <span class="px-2.5 py-1 bg-emerald-50 text-primary font-bold text-xs rounded-lg border border-emerald-200">Selasa</span>
+                </div>
+            </div>
+
+            <!-- Backup & Restore -->
+            <div class="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 space-y-3">
+                <h3 class="font-bold text-xs text-gray-700 uppercase tracking-wider">Backup & Restore Data</h3>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="backupDataJSON()" class="bg-blue-50 text-blue-700 border border-blue-200 text-xs font-semibold py-2.5 rounded-xl hover:bg-blue-100 transition flex items-center justify-center space-x-1.5">
+                        <i class="fa-solid fa-download"></i>
+                        <span>Backup JSON</span>
+                    </button>
+                    <label class="bg-amber-50 text-amber-700 border border-amber-200 text-xs font-semibold py-2.5 rounded-xl hover:bg-amber-100 transition flex items-center justify-center space-x-1.5 cursor-pointer">
+                        <i class="fa-solid fa-upload"></i>
+                        <span>Restore JSON</span>
+                        <input type="file" id="restore-file-input" accept=".json" onchange="restoreDataJSON(event)" class="hidden">
+                    </label>
+                </div>
+            </div>
+
+            <!-- Danger Zone -->
+            <div class="bg-white rounded-2xl p-4 shadow-sm border border-red-100 space-y-3">
+                <h3 class="font-bold text-xs text-red-600 uppercase tracking-wider">Zona Berbahaya</h3>
+                <div class="space-y-2">
+                    <button onclick="openFullResetModal()" class="w-full bg-red-50 text-red-600 border border-red-200 text-xs font-semibold py-2.5 rounded-xl hover:bg-red-100 transition flex items-center justify-center space-x-1.5">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <span>Reset Seluruh Data Sistem</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Bottom Navigation Bar -->
+    <nav class="bg-white border-t border-gray-200 fixed bottom-0 left-0 right-0 z-40 shadow-lg">
+        <div class="max-w-md mx-auto flex justify-around py-2">
+            <button onclick="switchPage('dashboard')" id="nav-dashboard" class="nav-item flex flex-col items-center text-primary space-y-0.5">
+                <i class="fa-solid fa-house text-lg"></i>
+                <span class="text-[10px] font-semibold">Dashboard</span>
+            </button>
+            <button onclick="switchPage('scan')" id="nav-scan" class="nav-item flex flex-col items-center text-gray-400 space-y-0.5">
+                <i class="fa-solid fa-qrcode text-lg"></i>
+                <span class="text-[10px] font-medium">Scan</span>
+            </button>
+            <button onclick="switchPage('santri')" id="nav-santri" class="nav-item flex flex-col items-center text-gray-400 space-y-0.5">
+                <i class="fa-solid fa-users text-lg"></i>
+                <span class="text-[10px] font-medium">Santri</span>
+            </button>
+            <button onclick="switchPage('rekap')" id="nav-rekap" class="nav-item flex flex-col items-center text-gray-400 space-y-0.5">
+                <i class="fa-solid fa-chart-pie text-lg"></i>
+                <span class="text-[10px] font-medium">Rekap</span>
+            </button>
+            <button onclick="switchPage('pengaturan')" id="nav-pengaturan" class="nav-item flex flex-col items-center text-gray-400 space-y-0.5">
+                <i class="fa-solid fa-gear text-lg"></i>
+                <span class="text-[10px] font-medium">Pengaturan</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- MODALS -->
+
+    <!-- 1. Santri Add/Edit Modal -->
+    <div id="modal-santri" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4 modal">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-xl">
+            <div class="flex justify-between items-center">
+                <h3 id="santri-modal-title" class="font-bold text-sm text-gray-800">Tambah Santri Baru</h3>
+                <button onclick="closeSantriModal()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <form id="form-santri" onsubmit="saveSantri(event)" class="space-y-3 text-xs">
+                <input type="hidden" id="santri-edit-id">
+                <div>
+                    <label class="block text-gray-500 mb-1 font-medium">Kode Santri</label>
+                    <input type="text" id="santri-kode" required placeholder="Contoh: PPAD011" class="w-full border border-gray-200 rounded-xl px-3 py-2 uppercase focus:outline-none focus:border-primary">
+                </div>
+                <div>
+                    <label class="block text-gray-500 mb-1 font-medium">Nama Lengkap</label>
+                    <input type="text" id="santri-nama" required placeholder="Nama santri..." class="w-full border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:border-primary">
+                </div>
+                <div>
+                    <label class="block text-gray-500 mb-1 font-medium">Kelas</label>
+                    <input type="text" id="santri-kelas" required placeholder="Contoh: 1 Wustha / 3 Aliyah" class="w-full border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:border-primary">
+                </div>
+                <div>
+                    <label class="block text-gray-500 mb-1 font-medium">Kamar</label>
+                    <input type="text" id="santri-kamar" required placeholder="Contoh: Al-Ghazali 01" class="w-full border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:border-primary">
+                </div>
+                <div class="flex space-x-2 pt-2">
+                    <button type="button" onclick="closeSantriModal()" class="flex-1 bg-gray-100 text-gray-700 font-semibold py-2.5 rounded-xl hover:bg-gray-200 transition">Batal</button>
+                    <button type="submit" class="flex-1 bg-primary text-white font-semibold py-2.5 rounded-xl hover:bg-emerald-800 transition">Simpan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 2. QR Code Viewer Modal -->
+    <div id="modal-qr" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4 modal">
+        <div class="bg-white rounded-2xl max-w-xs w-full p-5 space-y-4 shadow-xl text-center">
+            <div class="flex justify-between items-center">
+                <h3 class="font-bold text-sm text-gray-800">QR Code Santri</h3>
+                <button onclick="closeQRModal()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div class="flex flex-col items-center justify-center space-y-2 py-2">
+                <div id="qrcode-display" class="bg-white p-3 rounded-xl border border-gray-200 shadow-inner inline-block"></div>
+                <div id="qr-santri-nama" class="font-bold text-sm text-gray-800 mt-2">--</div>
+                <div id="qr-santri-detail" class="text-xs text-gray-500">--</div>
+            </div>
+            <button onclick="downloadQRCode()" class="w-full bg-primary text-white text-xs font-semibold py-2.5 rounded-xl shadow hover:bg-emerald-800 transition flex items-center justify-center space-x-1.5">
+                <i class="fa-solid fa-download"></i>
+                <span>Download Gambar QR</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- 3. Scan Success/Result Modal -->
+    <div id="modal-scan-result" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4 modal">
+        <div class="bg-white rounded-2xl max-w-xs w-full p-5 space-y-4 shadow-xl text-center">
+            <div id="scan-result-icon-container" class="w-16 h-16 rounded-full mx-auto flex items-center justify-center text-2xl">
+                <i id="scan-result-icon" class="fa-solid fa-check"></i>
+            </div>
+            <div>
+                <h3 id="scan-result-title" class="font-bold text-base text-gray-800">Absensi Berhasil</h3>
+                <p id="scan-result-subtitle" class="text-xs text-gray-500 mt-0.5">Kehadiran santri tercatat</p>
+            </div>
+            <div class="bg-gray-50 rounded-xl p-3 text-left space-y-1.5 text-xs">
+                <div class="flex justify-between"><span class="text-gray-400">Nama:</span> <span id="res-nama" class="font-bold text-gray-800">--</span></div>
+                <div class="flex justify-between"><span class="text-gray-400">Kode:</span> <span id="res-kode" class="font-bold text-gray-800">--</span></div>
+                <div class="flex justify-between"><span class="text-gray-400">Kelas:</span> <span id="res-kelas" class="font-bold text-gray-800">--</span></div>
+                <div class="flex justify-between"><span class="text-gray-400">Waktu:</span> <span id="res-waktu" class="font-bold text-emerald-600">--</span></div>
+            </div>
+            <button onclick="closeScanResultModal()" class="w-full bg-primary text-white text-xs font-semibold py-2.5 rounded-xl shadow hover:bg-emerald-800 transition">Tutup / Lanjutkan</button>
+        </div>
+    </div>
+
+    <!-- 4. Reset Bulanan Confirmation Modal -->
+    <div id="modal-reset" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4 modal">
+        <div class="bg-white rounded-2xl max-w-xs w-full p-5 space-y-4 shadow-xl text-center">
+            <div class="w-12 h-12 rounded-full bg-red-100 text-red-600 mx-auto flex items-center justify-center text-xl">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <div>
+                <h3 class="font-bold text-sm text-gray-800">Reset Rekap Bulanan?</h3>
+                <p class="text-xs text-gray-500 mt-1">Apakah Anda yakin ingin menghapus seluruh data absensi bulan <span id="reset-month-name" class="font-semibold text-gray-700">--</span>? Data santri tidak akan terhapus.</p>
+            </div>
+            <div class="flex space-x-2 pt-2 text-xs">
+                <button onclick="closeResetModal()" class="flex-1 bg-gray-100 text-gray-700 font-semibold py-2.5 rounded-xl hover:bg-gray-200 transition">Batal</button>
+                <button onclick="executeMonthlyReset()" class="flex-1 bg-red-600 text-white font-semibold py-2.5 rounded-xl hover:bg-red-700 transition">Reset Data</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 5. Full Reset System Modal -->
+    <div id="modal-full-reset" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4 modal">
+        <div class="bg-white rounded-2xl max-w-xs w-full p-5 space-y-4 shadow-xl text-center">
+            <div class="w-12 h-12 rounded-full bg-red-100 text-red-600 mx-auto flex items-center justify-center text-xl">
+                <i class="fa-solid fa-bomb"></i>
+            </div>
+            <div>
+                <h3 class="font-bold text-sm text-red-600">RESET SELURUH SISTEM?</h3>
+                <p class="text-xs text-gray-500 mt-1">Tindakan ini akan menghapus SEMUA data santri, absensi, dan mengembalikan pengaturan ke awal. Tidak dapat dibatalkan!</p>
+            </div>
+            <div class="space-y-2 pt-2 text-xs">
+                <input type="text" id="full-reset-confirm-input" placeholder="Ketik: RESET" class="w-full text-center border border-red-200 rounded-xl px-3 py-2 uppercase font-bold focus:outline-none focus:border-red-500">
+                <div class="flex space-x-2">
+                    <button onclick="closeFullResetModal()" class="flex-1 bg-gray-100 text-gray-700 font-semibold py-2.5 rounded-xl hover:bg-gray-200 transition">Batal</button>
+                    <button onclick="executeFullReset()" class="flex-1 bg-red-600 text-white font-semibold py-2.5 rounded-xl hover:bg-red-700 transition">Hapus Semua</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed top-5 left-1/2 transform -translate-x-1/2 z-50 hidden transition-all duration-300 max-w-xs w-full px-4">
+        <div id="toast-content" class="bg-gray-900 text-white px-4 py-3 rounded-2xl shadow-xl flex items-center space-x-3 text-xs">
+            <i id="toast-icon" class="fa-solid fa-circle-check text-emerald-400 text-base"></i>
+            <div>
+                <div id="toast-title" class="font-bold">Notifikasi</div>
+                <div id="toast-msg" class="text-gray-300 text-[10px]">Pesan sistem...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- APPLICATION LOGIC -->
+    <script>
+        /* --- APP STATE & INITIAL DATA --- */
+        const DEFAULT_SANTRI = [
+            { id: "PPAD001", nama: "Ahmad Fauzan", kelas: "1 Wustha", kamar: "Al-Ghazali 01" },
+            { id: "PPAD002", nama: "Muhammad Rizki", kelas: "1 Wustha", kamar: "Al-Ghazali 01" },
+            { id: "PPAD003", nama: "Abdul Aziz", kelas: "2 Wustha", kamar: "Ali bin Abi Thalib 02" },
+            { id: "PPAD004", nama: "Fajar Ramadhan", kelas: "2 Wustha", kamar: "Ali bin Abi Thalib 02" },
+            { id: "PPAD005", nama: "M. Ilham", kelas: "3 Wustha", kamar: "Utsman bin Affan 03" },
+            { id: "PPAD006", nama: "Ahmad Zain", kelas: "1 Ula", kamar: "Utsman bin Affan 03" },
+            { id: "PPAD007", nama: "Muhammad Farhan", kelas: "2 Ula", kamar: "Abu Bakar 04" },
+            { id: "PPAD008", nama: "Abdul Rahman", kelas: "3 Ula", kamar: "Abu Bakar 04" },
+            { id: "PPAD009", nama: "Fikri Hidayat", kelas: "1 Aliyah", kamar: "Umar bin Khattab 05" },
+            { id: "PPAD010", nama: "Hasan Basri", kelas: "2 Aliyah", kamar: "Umar bin Khattab 05" }
+        ];
+
+        let db = {
+            settings: {
+                institutionName: "Pondok Pesantren Al Hikmah Darussalam",
+                systemName: "Absensi Digital Santri"
+            },
+            santri: [],
+            attendance: [], // { id, santriId, date (YYYY-MM-DD), time (HH:MM), dayName, monthYear (YYYY-MM) }
+            riwayat: []     // { santriNama, santriKode, date, time, dayName, status }
+        };
+
+        let html5QrCode = null;
+        let isScannerRunning = false;
+        let currentActiveMonth = "";
+
+        // Days mapping for attendance: Jum'at, Sabtu, Ahad, Selasa
+        const VALID_ATTENDANCE_DAYS = ["Friday", "Saturday", "Sunday", "Tuesday"];
+        const INDONESIAN_DAYS = {
+            "Sunday": "Ahad",
+            "Monday": "Senin",
+            "Tuesday": "Selasa",
+            "Wednesday": "Rabu",
+            "Thursday": "Kamis",
+            "Friday": "Jum'at",
+            "Saturday": "Sabtu"
+        };
+        const MONTH_NAMES = [
+            "Januari", "Februari", "Maret", "April", "Mei", "Juni", 
+            "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+        ];
+
+        /* --- INITIALIZATION --- */
+        window.addEventListener('DOMContentLoaded', () => {
+            loadDataFromStorage();
+            initCurrentMonthSelector();
+            updateDashboard();
+            renderSantriList();
+            renderRekapSantri();
+            initDaftarTidakHadirDateSelector();
+            renderRiwayatList();
+            applySettingsToUI();
+        });
+
+        function loadDataFromStorage() {
+            const savedDb = localStorage.getItem('santri_absensi_db');
+            if (savedDb) {
+                try {
+                    db = JSON.parse(savedDb);
+                } catch (e) {
+                    console.error("Gagal parse localStorage", e);
+                }
+            } else {
+                db.santri = [...DEFAULT_SANTRI];
+                saveDataToStorage();
+            }
+        }
+
+        function saveDataToStorage() {
+            localStorage.setItem('santri_absensi_db', JSON.stringify(db));
+        }
+
+        function applySettingsToUI() {
+            document.getElementById('header-institution').innerText = db.settings.institutionName;
+            document.getElementById('header-system-name').innerText = db.settings.systemName;
+            document.getElementById('setting-institution').value = db.settings.institutionName;
+            document.getElementById('setting-system-name').value = db.settings.systemName;
+        }
+
+        /* --- NAVIGATION --- */
+        function switchPage(pageId) {
+            document.querySelectorAll('.page-section').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`page-${pageId}`).classList.remove('hidden');
+
+            document.querySelectorAll('.nav-item').forEach(el => {
+                el.classList.remove('text-primary');
+                el.classList.add('text-gray-400');
+            });
+            const navBtn = document.getElementById(`nav-${pageId}`);
+            if (navBtn) {
+                navBtn.classList.remove('text-gray-400');
+                navBtn.classList.add('text-primary');
+            }
+
+            // Stop scanner if leaving scan page
+            if (pageId !== 'scan' && isScannerRunning) {
+                stopScanner();
+            }
+            if (pageId === 'scan') {
+                // Auto start camera when entering scan page
+                setTimeout(initScanner, 300);
+            }
+            window.scrollTo(0, 0);
+        }
+
+        /* --- DATE & ATTENDANCE LOGIC HELPER --- */
+        function getCurrentDateTime() {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            
+            // Get English day name for internal check
+            const options = { weekday: 'long', timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone };
+            const enDayFormatter = new Intl.DateTimeFormat('en-US', options);
+            const enDayName = enDayFormatter.format(now);
+
+            return {
+                dateStr: `${year}-${month}-${day}`,
+                timeStr: `${hours}:${minutes}`,
+                monthYearStr: `${year}-${month}`,
+                dayNameEn: enDayName,
+                dayNameId: INDONESIAN_DAYS[enDayName] || enDayName,
+                formattedDateReadable: `${day} ${MONTH_NAMES[now.getMonth()]} ${year}`
+            };
+        }
+
+        function isTodayAttendanceDay() {
+            const dt = getCurrentDateTime();
+            return VALID_ATTENDANCE_DAYS.includes(dt.dayNameEn);
+        }
+
+        /* --- DASHBOARD LOGIC --- */
+        function updateDashboard() {
+            const dt = getCurrentDateTime();
+            
+            // Header date badge
+            document.getElementById('header-date-badge').innerText = `${dt.dayNameId}, ${dt.formattedDateReadable}`;
+            document.getElementById('current-day-badge').innerText = dt.dayNameId;
+
+            // Status Banner Check
+            const banner = document.getElementById('attendance-status-banner');
+            const statusTitle = document.getElementById('today-status-title');
+            const statusDesc = document.getElementById('today-status-desc');
+            const statusIcon = document.getElementById('today-status-icon');
+
+            const isAttendanceDay = isTodayAttendanceDay();
+
+            if (isAttendanceDay) {
+                statusTitle.innerText = "Hari Ini Jadwal Absensi";
+                statusDesc.innerText = `Absensi aktif untuk hari ${dt.dayNameId}. Silakan lakukan scan QR.`;
+                statusIcon.className = "w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 text-xl";
+                statusIcon.innerHTML = '<i class="fa-solid fa-circle-check"></i>';
+            } else {
+                statusTitle.innerText = "Bukan Hari Jadwal Absensi";
+                statusDesc.innerText = `Jadwal absensi hanya pada Jum'at, Sabtu, Ahad, dan Selasa.`;
+                statusIcon.className = "w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center text-amber-600 text-xl";
+                statusIcon.innerHTML = '<i class="fa-solid fa-calendar-xmark"></i>';
+            }
+
+            // Stats Count
+            const totalSantri = db.santri.length;
+            document.getElementById('stat-total-santri').innerText = totalSantri;
+
+            // Today's attendances
+            const todayAttendances = db.attendance.filter(a => a.date === dt.dateStr);
+            const hadirHariIni = todayAttendances.length;
+            document.getElementById('stat-hadir-hari-ini').innerText = hadirHariIni;
+
+            const belumHadir = Math.max(0, totalSantri - hadirHariIni);
+            document.getElementById('stat-belum-hadir').innerText = belumHadir;
+
+            const persenHariIni = totalSantri > 0 ? Math.round((hadirHariIni / totalSantri) * 100) : 0;
+            document.getElementById('stat-persen-hari-ini').innerText = `${persenHariIni}% dari total`;
+
+            // Monthly Summary on Dashboard
+            const currentMonthYear = dt.monthYearStr;
+            const monthAttendances = db.attendance.filter(a => a.monthYear === currentMonthYear);
+            
+            // Calculate total unique attendance sessions in this month
+            const uniqueDatesInMonth = [...new Set(monthAttendances.map(a => a.date))].sort();
+            const totalSesiBulanIni = uniqueDatesInMonth.length;
+            
+            document.getElementById('dash-total-sesi').innerText = `${totalSesiBulanIni} Sesi`;
+            document.getElementById('dash-total-hadir-bulan').innerText = `${monthAttendances.length} Kehadiran`;
+            document.getElementById('dashboard-current-month-label').innerText = `${MONTH_NAMES[parseInt(dt.monthYearStr.split('-')[1])-1]} ${dt.monthYearStr.split('-')[0]}`;
+
+            // Average percentage across month sessions
+            let avgPersen = 0;
+            if (totalSesiBulanIni > 0 && totalSantri > 0) {
+                let totalPersenSum = 0;
+                uniqueDatesInMonth.forEach(d => {
+                    const countOnDate = monthAttendances.filter(a => a.date === d).length;
+                    totalPersenSum += (countOnDate / totalSantri) * 100;
+                });
+                avgPersen = Math.round(totalPersenSum / totalSesiBulanIni);
+            }
+            document.getElementById('dash-avg-persen').innerText = `${avgPersen}%`;
+        }
+
+        /* --- QR SCANNER LOGIC (IMPROVED PERFORMANCE & REAR CAMERA) --- */
+        function initScanner() {
+            if (isScannerRunning) return;
+
+            const placeholder = document.getElementById('scanner-placeholder');
+            placeholder.style.display = 'flex';
+            placeholder.innerHTML = '<i class="fa-solid fa-spinner text-4xl animate-spin text-emerald-400"></i><p class="text-xs">Mengaktifkan kamera...</p>';
+
+            html5QrCode = new Html5Qrcode("reader");
+            
+            // Optimized config for high speed detection and mobile usage
+            const config = { 
+                fps: 20, 
+                qrbox: { width: 250, height: 250 },
+                aspectRatio: 1.0,
+                experimentalFeatures: {
+                    useBarCodeDetectorIfSupported: true
+                }
+            };
+
+            // Prioritize environment (rear) camera automatically
+            html5QrCode.start(
+                { facingMode: "environment" },
+                config,
+                onScanSuccess,
+                onScanError
+            ).then(() => {
+                isScannerRunning = true;
+                placeholder.style.display = 'none';
+                document.getElementById('scan-status-badge').innerText = "Kamera Aktif";
+                document.getElementById('scan-status-badge').className = "text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-medium";
+            }).catch(err => {
+                console.warn("Environment camera failed, trying fallback camera...", err);
+                // Fallback to any available camera if environment camera is not accessible
+                html5QrCode.start(
+                    { facingMode: "user" },
+                    config,
+                    onScanSuccess,
+                    onScanError
+                ).then(() => {
+                    isScannerRunning = true;
+                    placeholder.style.display = 'none';
+                    document.getElementById('scan-status-badge').innerText = "Kamera Aktif";
+                    document.getElementById('scan-status-badge').className = "text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-medium";
+                }).catch(err2 => {
+                    console.error("Gagal membuka kamera:", err2);
+                    placeholder.innerHTML = '<i class="fa-solid fa-triangle-exclamation text-3xl text-red-400"></i><p class="text-xs text-center px-4">Gagal mengakses kamera. Perizinan ditolak atau tidak tersedia.</p>';
+                    document.getElementById('scan-status-badge').innerText = "Kamera Error";
+                    document.getElementById('scan-status-badge').className = "text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-800 font-medium";
+                });
+            });
+        }
+
+        function stopScanner() {
+            if (html5QrCode && isScannerRunning) {
+                html5QrCode.stop().then(() => {
+                    isScannerRunning = false;
+                    document.getElementById('scanner-placeholder').style.display = 'flex';
+                    document.getElementById('scanner-placeholder').innerHTML = '<i class="fa-solid fa-camera text-4xl text-gray-500"></i><p class="text-xs">Kamera dimatikan</p>';
+                    document.getElementById('scan-status-badge').innerText = "Kamera Standby";
+                    document.getElementById('scan-status-badge').className = "text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-medium";
+                }).catch(err => console.error("Gagal menghentikan scanner", err));
+            }
+        }
+
+        function onScanSuccess(decodedText) {
+            processAbsensiCode(decodedText.trim());
+        }
+
+        function onScanError(errorMessage) {
+            // Ignore frame scan errors during live scanning
+        }
+
+        function processManualScan() {
+            const input = document.getElementById('manual-code-input');
+            const code = input.value.trim();
+            if (!code) {
+                showToast("Error", "Masukkan kode santri terlebih dahulu.", "error");
+                return;
+            }
+            processAbsensiCode(code);
+            input.value = "";
+        }
+
+        function processAbsensiCode(santriId) {
+            // 1. Check if today is attendance day
+            if (!isTodayAttendanceDay()) {
+                const dt = getCurrentDateTime();
+                showToast("Bukan Jadwal", `Hari ini (${dt.dayNameId}) bukan jadwal absensi.`, "error");
+                return;
+            }
+
+            // 2. Find santri
+            const santri = db.santri.find(s => s.id.toLowerCase() === santriId.toLowerCase());
+            if (!santri) {
+                showToast("QR TIDAK TERDAFTAR", `Data santri dengan kode "${santriId}" tidak ditemukan.`, "error");
+                return;
+            }
+
+            // 3. Check duplicate attendance for today
+            const dt = getCurrentDateTime();
+            const alreadyChecked = db.attendance.find(a => a.santriId === santri.id && a.date === dt.dateStr);
+
+            if (alreadyChecked) {
+                showToast("SANTRI SUDAH ABSEN", `${santri.nama} sudah absen pada pukul ${alreadyChecked.time}.`, "warning");
+                showScanResultModal(santri, alreadyChecked.time, true);
+                return;
+            }
+
+            // 4. Record attendance
+            const newAttendance = {
+                id: 'ATT_' + Date.now() + '_' + Math.random().toString(36).substring(2, 5),
+                santriId: santri.id,
+                date: dt.dateStr,
+                time: dt.timeStr,
+                dayName: dt.dayNameId,
+                monthYear: dt.monthYearStr
+            };
+
+            db.attendance.unshift(newAttendance);
+
+            // Add to riwayat log
+            db.riwayat.unshift({
+                santriNama: santri.nama,
+                santriKode: santri.id,
+                date: dt.dateStr,
+                time: dt.timeStr,
+                dayName: dt.dayNameId,
+                status: "HADIR"
+            });
+
+            saveDataToStorage();
+            updateDashboard();
+            renderRekapSantri();
+            initDaftarTidakHadirDateSelector();
+            renderRiwayatList();
+
+            showToast("Absensi Berhasil", `${santri.nama} tercatat hadir.`, "success");
+            showScanResultModal(santri, dt.timeStr, false);
+        }
+
+        function showScanResultModal(santri, timeStr, isDuplicate) {
+            const modal = document.getElementById('modal-scan-result');
+            const iconContainer = document.getElementById('scan-result-icon-container');
+            const icon = document.getElementById('scan-result-icon');
+            const title = document.getElementById('scan-result-title');
+            const subtitle = document.getElementById('scan-result-subtitle');
+
+            if (isDuplicate) {
+                iconContainer.className = "w-16 h-16 rounded-full bg-amber-100 text-amber-600 mx-auto flex items-center justify-center text-2xl";
+                icon.className = "fa-solid fa-triangle-exclamation";
+                title.innerText = "SANTRI SUDAH ABSEN";
+                subtitle.innerText = `Absen sebelumnya: ${timeStr}`;
+            } else {
+                iconContainer.className = "w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 mx-auto flex items-center justify-center text-2xl";
+                icon.className = "fa-solid fa-check";
+                title.innerText = "ABSENSI BERHASIL";
+                subtitle.innerText = "Kehadiran berhasil dicatat";
+            }
+
+            document.getElementById('res-nama').innerText = santri.nama;
+            document.getElementById('res-kode').innerText = santri.id;
+            document.getElementById('res-kelas').innerText = `${santri.kelas} (${santri.kamar})`;
+            document.getElementById('res-waktu').innerText = timeStr;
+
+            modal.classList.remove('hidden');
+        }
+
+        function closeScanResultModal() {
+            document.getElementById('modal-scan-result').classList.add('hidden');
+        }
+
+        /* --- DATA SANTRI MANAGEMENT --- */
+        function renderSantriList() {
+            const container = document.getElementById('santri-list-container');
+            const keyword = document.getElementById('santri-search-input').value.toLowerCase();
+            
+            const filtered = db.santri.filter(s => 
+                s.nama.toLowerCase().includes(keyword) ||
+                s.id.toLowerCase().includes(keyword) ||
+                s.kelas.toLowerCase().includes(keyword) ||
+                s.kamar.toLowerCase().includes(keyword)
+            );
+
+            document.getElementById('santri-count-label').innerText = db.santri.length;
+
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div class="bg-white rounded-2xl p-8 text-center border border-gray-100 space-y-2">
+                        <i class="fa-solid fa-users-slash text-3xl text-gray-300"></i>
+                        <p class="text-xs text-gray-500">Tidak ada data santri yang ditemukan.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = filtered.map(s => `
+                <div class="bg-white rounded-2xl p-3.5 shadow-sm border border-gray-100 flex items-center justify-between">
+                    <div class="space-y-0.5">
+                        <div class="flex items-center space-x-2">
+                            <span class="font-bold text-xs text-gray-800">${s.nama}</span>
+                            <span class="text-[10px] bg-emerald-50 text-primary font-semibold px-2 py-0.5 rounded-md border border-emerald-100">${s.id}</span>
+                        </div>
+                        <p class="text-[11px] text-gray-500">Kelas: <span class="font-medium text-gray-700">${s.kelas}</span> | Kamar: <span class="font-medium text-gray-700">${s.kamar}</span></p>
+                    </div>
+                    <div class="flex items-center space-x-1">
+                        <button onclick="openQRModal('${s.id}')" title="Lihat QR" class="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center hover:bg-blue-100 transition"><i class="fa-solid fa-qrcode text-xs"></i></button>
+                        <button onclick="openSantriModal('${s.id}')" title="Edit" class="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center hover:bg-amber-100 transition"><i class="fa-solid fa-pen text-xs"></i></button>
+                        <button onclick="deleteSantri('${s.id}')" title="Hapus" class="w-8 h-8 rounded-xl bg-red-50 text-red-600 flex items-center justify-center hover:bg-red-100 transition"><i class="fa-solid fa-trash text-xs"></i></button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function openSantriModal(id = null) {
+            const modal = document.getElementById('modal-santri');
+            const title = document.getElementById('santri-modal-title');
+            
+            document.getElementById('form-santri').reset();
+            document.getElementById('santri-edit-id').value = '';
+
+            if (id) {
+                title.innerText = "Edit Data Santri";
+                const s = db.santri.find(item => item.id === id);
+                if (s) {
+                    document.getElementById('santri-edit-id').value = s.id;
+                    document.getElementById('santri-kode').value = s.id;
+                    document.getElementById('santri-kode').disabled = true;
+                    document.getElementById('santri-nama').value = s.nama;
+                    document.getElementById('santri-kelas').value = s.kelas;
+                    document.getElementById('santri-kamar').value = s.kamar;
+                }
+            } else {
+                title.innerText = "Tambah Santri Baru";
+                document.getElementById('santri-kode').disabled = false;
+                const nextNum = db.santri.length + 1;
+                document.getElementById('santri-kode').value = 'PPAD' + String(nextNum).padStart(3, '0');
+            }
+            modal.classList.remove('hidden');
+        }
+
+        function closeSantriModal() {
+            document.getElementById('modal-santri').classList.add('hidden');
+        }
+
+        function saveSantri(event) {
+            event.preventDefault();
+            const editId = document.getElementById('santri-edit-id').value;
+            const kode = document.getElementById('santri-kode').value.trim().toUpperCase();
+            const nama = document.getElementById('santri-nama').value.trim();
+            const kelas = document.getElementById('santri-kelas').value.trim();
+            const kamar = document.getElementById('santri-kamar').value.trim();
+
+            if (editId) {
+                const s = db.santri.find(item => item.id === editId);
+                if (s) {
+                    s.nama = nama;
+                    s.kelas = kelas;
+                    s.kamar = kamar;
+                }
+                showToast("Berhasil", "Data santri berhasil diperbarui.", "success");
+            } else {
+                if (db.santri.some(item => item.id === kode)) {
+                    showToast("Error", `Kode santri "${kode}" sudah terdaftar.`, "error");
+                    return;
+                }
+                db.santri.push({ id: kode, nama, kelas, kamar });
+                showToast("Berhasil", "Santri baru berhasil ditambahkan.", "success");
+            }
+
+            saveDataToStorage();
+            closeSantriModal();
+            renderSantriList();
+            updateDashboard();
+            renderRekapSantri();
+            initDaftarTidakHadirDateSelector();
+        }
+
+        function deleteSantri(id) {
+            const s = db.santri.find(item => item.id === id);
+            if (!s) return;
+
+            if (confirm(`Apakah Anda yakin ingin menghapus santri "${s.nama}"?`)) {
+                db.santri = db.santri.filter(item => item.id !== id);
+                saveDataToStorage();
+                renderSantriList();
+                updateDashboard();
+                renderRekapSantri();
+                initDaftarTidakHadirDateSelector();
+                showToast("Terhapus", "Data santri telah dihapus.", "success");
+            }
+        }
+
+        /* --- QR CODE VIEWER & DOWNLOAD --- */
+        let activeQRInstance = null;
+
+        function openQRModal(santriId) {
+            const s = db.santri.find(item => item.id === santriId);
+            if (!s) return;
+
+            document.getElementById('qr-santri-nama').innerText = s.nama;
+            document.getElementById('qr-santri-detail').innerText = `${s.id} • ${s.kelas}`;
+            
+            const container = document.getElementById('qrcode-display');
+            container.innerHTML = '';
+            
+            activeQRInstance = new QRCode(container, {
+                text: s.id,
+                width: 180,
+                height: 180,
+                colorDark : "#000000",
+                colorLight : "#ffffff",
+                correctLevel : QRCode.CorrectLevel.H
+            });
+
+            document.getElementById('modal-qr').classList.remove('hidden');
+        }
+
+        function closeQRModal() {
+            document.getElementById('modal-qr').classList.add('hidden');
+        }
+
+        function downloadQRCode() {
+            const container = document.getElementById('qrcode-display');
+            const img = container.querySelector('img');
+            const canvas = container.querySelector('canvas');
+            
+            let imageUrl = '';
+            if (img && img.src) {
+                imageUrl = img.src;
+            } else if (canvas) {
+                imageUrl = canvas.toDataURL("image/png");
+            }
+
+            if (imageUrl) {
+                const link = document.createElement('a');
+                link.href = imageUrl;
+                link.download = `QR_${document.getElementById('qr-santri-nama').innerText.replace(/\s+/g, '_')}.png`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                showToast("Berhasil", "QR Code berhasil diunduh.", "success");
+            } else {
+                showToast("Gagal", "Tidak dapat mengunduh QR Code.", "error");
+            }
+        }
+
+        /* --- REKAP & BULANAN --- */
+        function initCurrentMonthSelector() {
+            const select = document.getElementById('rekap-month-select');
+            const dt = getCurrentDateTime();
+            
+            let monthsSet = new Set();
+            monthsSet.add(dt.monthYearStr);
+            db.attendance.forEach(a => {
+                if (a.monthYear) monthsSet.add(a.monthYear);
+            });
+
+            const sortedMonths = Array.from(monthsSet).sort().reverse();
+            currentActiveMonth = sortedMonths[0] || dt.monthYearStr;
+
+            select.innerHTML = sortedMonths.map(m => {
+                const parts = m.split('-');
+                const mName = MONTH_NAMES[parseInt(parts[1])-1];
+                const label = `${mName} ${parts[0]}`;
+                return `<option value="${m}" ${m === currentActiveMonth ? 'selected' : ''}>${label}</option>`;
+            }).join('');
+        }
+
+        function changeRekapMonth() {
+            const select = document.getElementById('rekap-month-select');
+            currentActiveMonth = select.value;
+            renderRekapSantri();
+            initDaftarTidakHadirDateSelector();
+        }
+
+        function switchRekapTab(tab) {
+            const btnHarian = document.getElementById('btn-rekap-harian');
+            const btnTidakHadir = document.getElementById('btn-rekap-tidak-hadir');
+            const btnRiwayat = document.getElementById('btn-rekap-riwayat');
+            
+            const contentHarian = document.getElementById('rekap-tab-harian-content');
+            const contentTidakHadir = document.getElementById('rekap-tab-tidak-hadir-content');
+            const contentRiwayat = document.getElementById('rekap-tab-riwayat-content');
+
+            // Reset all tabs
+            btnHarian.className = "flex-1 py-2 rounded-lg text-gray-600 transition";
+            btnTidakHadir.className = "flex-1 py-2 rounded-lg text-gray-600 transition";
+            btnRiwayat.className = "flex-1 py-2 rounded-lg text-gray-600 transition";
+            
+            contentHarian.classList.add('hidden');
+            contentTidakHadir.classList.add('hidden');
+            contentRiwayat.classList.add('hidden');
+
+            if (tab === 'harian') {
+                btnHarian.className = "flex-1 py-2 rounded-lg bg-white text-primary shadow-sm transition";
+                contentHarian.classList.remove('hidden');
+            } else if (tab === 'tidak-hadir') {
+                btnTidakHadir.className = "flex-1 py-2 rounded-lg bg-white text-primary shadow-sm transition";
+                contentTidakHadir.classList.remove('hidden');
+                initDaftarTidakHadirDateSelector();
+            } else {
+                btnRiwayat.className = "flex-1 py-2 rounded-lg bg-white text-primary shadow-sm transition";
+                contentRiwayat.classList.remove('hidden');
+            }
+        }
+
+        function renderRekapSantri() {
+            const container = document.getElementById('rekap-santri-list');
+            const monthAttendances = db.attendance.filter(a => a.monthYear === currentActiveMonth);
+            
+            const uniqueDatesInMonth = [...new Set(monthAttendances.map(a => a.date))];
+            const totalSesi = uniqueDatesInMonth.length;
+
+            if (db.santri.length === 0) {
+                container.innerHTML = `<div class="p-6 text-center text-xs text-gray-400">Belum ada data santri.</div>`;
+                return;
+            }
+
+            let santriStats = db.santri.map(s => {
+                const hadirCount = monthAttendances.filter(a => a.santriId === s.id).length;
+                const alpaCount = Math.max(0, totalSesi - hadirCount);
+                const persen = totalSesi > 0 ? Math.round((hadirCount / totalSesi) * 100) : 0;
+                return { ...s, hadirCount, alpaCount, persen };
+            });
+
+            santriStats.sort((a, b) => b.persen - a.persen);
+
+            if (totalSesi > 0 && santriStats.length > 0) {
+                document.getElementById('rekap-top-santri').innerText = `${santriStats[0].nama} (${santriStats[0].persen}%)`;
+                const lowest = [...santriStats].reverse()[0];
+                document.getElementById('rekap-low-santri').innerText = `${lowest.nama} (${lowest.alpaCount} Alpa)`;
+            } else {
+                document.getElementById('rekap-top-santri').innerText = "-";
+                document.getElementById('rekap-low-santri').innerText = "-";
+            }
+
+            container.innerHTML = santriStats.map((s, idx) => `
+                <div class="p-3.5 flex items-center justify-between text-xs">
+                    <div class="flex items-center space-x-3">
+                        <span class="w-5 text-center font-bold text-gray-400 text-[10px]">#${idx+1}</span>
+                        <div>
+                            <div class="font-bold text-gray-800">${s.nama}</div>
+                            <div class="text-[10px] text-gray-400">${s.id} • ${s.kelas}</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-4 text-right">
+                        <div>
+                            <div class="font-bold text-emerald-600">${s.hadirCount} Hadir</div>
+                            <div class="text-[10px] text-red-500">${s.alpaCount} Alpa</div>
+                        </div>
+                        <div class="bg-gray-50 border border-gray-100 px-2.5 py-1 rounded-xl text-center min-w-[45px]">
+                            <span class="font-bold text-gray-800">${s.persen}%</span>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        /* --- DAFTAR TIDAK HADIR (PER TANGGAL) --- */
+        function initDaftarTidakHadirDateSelector() {
+            const select = document.getElementById('tidak-hadir-date-select');
+            if (!select) return;
+
+            // Get all unique dates in the current active month from attendance records OR today if attendance day
+            const monthAttendances = db.attendance.filter(a => a.monthYear === currentActiveMonth);
+            let datesSet = new Set(monthAttendances.map(a => a.date));
+            
+            const dt = getCurrentDateTime();
+            if (dt.monthYearStr === currentActiveMonth) {
+                datesSet.add(dt.dateStr);
+            }
+
+            const sortedDates = Array.from(datesSet).sort().reverse();
+
+            if (sortedDates.length === 0) {
+                select.innerHTML = `<option value="">Tidak ada tanggal</option>`;
+                document.getElementById('tidak-hadir-container').innerHTML = `<div class="bg-white rounded-2xl p-6 text-center text-xs text-gray-400">Belum ada data tanggal absensi untuk bulan ini.</div>`;
+                return;
+            }
+
+            select.innerHTML = sortedDates.map(d => {
+                // Parse date for readable label
+                const parts = d.split('-');
+                const readable = `${parts[2]} ${MONTH_NAMES[parseInt(parts[1])-1]} ${parts[0]}`;
+                return `<option value="${d}">${readable}</option>`;
+            }).join('');
+
+            renderDaftarTidakHadir();
+        }
+
+        function renderDaftarTidakHadir() {
+            const select = document.getElementById('tidak-hadir-date-select');
+            const container = document.getElementById('tidak-hadir-container');
+            if (!select || !container) return;
+
+            const selectedDate = select.value;
+            if (!selectedDate) {
+                container.innerHTML = `<div class="bg-white rounded-2xl p-6 text-center text-xs text-gray-400">Pilih tanggal terlebih dahulu.</div>`;
+                return;
+            }
+
+            // Get attendances on selectedDate
+            const attendancesOnDate = db.attendance.filter(a => a.date === selectedDate);
+            const hadirIds = new Set(attendancesOnDate.map(a => a.santriId));
+
+            const totalSantri = db.santri.length;
+            const hadirCount = hadirIds.size;
+            const tidakHadirSantri = db.santri.filter(s => !hadirIds.has(s.id));
+            const tidakHadirCount = tidakHadirSantri.length;
+
+            // Format date for display
+            const parts = selectedDate.split('-');
+            const dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
+            const options = { weekday: 'long', timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone };
+            const dayEn = new Intl.DateTimeFormat('en-US', options).format(dateObj);
+            const dayId = INDONESIAN_DAYS[dayEn] || dayEn;
+            const formattedDate = `${dayId}, ${parts[2]} ${MONTH_NAMES[parseInt(parts[1])-1]} ${parts[0]}`;
+
+            container.innerHTML = `
+                <div class="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 space-y-3">
+                    <div class="border-b pb-2.5">
+                        <h4 class="font-bold text-sm text-gray-800">${formattedDate}</h4>
+                        <div class="flex gap-3 text-xs mt-1 text-gray-500">
+                            <span>Total Santri: <strong class="text-gray-800">${totalSantri}</strong></span>
+                            <span>Hadir: <strong class="text-emerald-600">${hadirCount}</strong></span>
+                            <span>Tidak Hadir: <strong class="text-red-500">${tidakHadirCount}</strong></span>
+                        </div>
+                    </div>
+
+                    <div class="space-y-2">
+                        <h5 class="font-bold text-xs text-gray-700 uppercase tracking-wider">Santri Tidak Hadir (Alpa):</h5>
+                        ${tidakHadirCount === 0 ? `
+                            <div class="bg-emerald-50 text-emerald-700 p-3 rounded-xl text-xs text-center font-medium border border-emerald-100">
+                                🎉 Luar biasa! Semua santri hadir pada tanggal ini.
+                            </div>
+                        ` : `
+                            <div class="divide-y divide-gray-100 bg-gray-50 rounded-xl overflow-hidden border border-gray-100">
+                                ${tidakHadirSantri.map(s => `
+                                    <div class="p-3 flex items-center justify-between text-xs">
+                                        <div class="flex items-center space-x-2">
+                                            <span class="text-red-500 font-bold">🔴</span>
+                                            <div>
+                                                <div class="font-bold text-gray-800">${s.nama}</div>
+                                                <div class="text-[10px] text-gray-400">${s.id} • ${s.kelas}</div>
+                                            </div>
+                                        </div>
+                                        <span class="px-2 py-0.5 bg-red-50 text-red-600 font-semibold text-[10px] rounded-md border border-red-200">ALPA</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        `}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderRiwayatList() {
+            const container = document.getElementById('riwayat-list-container');
+            const keyword = document.getElementById('riwayat-search-input').value.toLowerCase();
+
+            const filtered = db.riwayat.filter(r => 
+                r.santriNama.toLowerCase().includes(keyword) ||
+                r.santriKode.toLowerCase().includes(keyword) ||
+                r.date.includes(keyword) ||
+                r.dayName.toLowerCase().includes(keyword)
+            );
+
+            if (filtered.length === 0) {
+                container.innerHTML = `<div class="p-6 text-center text-xs text-gray-400">Belum ada riwayat aktivitas absensi.</div>`;
+                return;
+            }
+
+            container.innerHTML = filtered.map(r => `
+                <div class="p-3.5 flex items-center justify-between text-xs">
+                    <div class="space-y-0.5">
+                        <div class="flex items-center space-x-1.5">
+                            <span class="font-bold text-gray-800">${r.santriNama}</span>
+                            <span class="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">${r.santriKode}</span>
+                        </div>
+                        <div class="text-[10px] text-gray-400">${r.dayName}, ${r.date} • ${r.time}</div>
+                    </div>
+                    <div>
+                        <span class="px-2.5 py-1 bg-emerald-50 text-emerald-700 font-bold text-[10px] rounded-lg border border-emerald-200">
+                            🟢 ${r.status}
+                        </span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        /* --- RESET BULANAN --- */
+        function openResetModal() {
+            const parts = currentActiveMonth.split('-');
+            const mName = MONTH_NAMES[parseInt(parts[1])-1];
+            document.getElementById('reset-month-name').innerText = `${mName} ${parts[0]}`;
+            document.getElementById('modal-reset').classList.remove('hidden');
+        }
+
+        function closeResetModal() {
+            document.getElementById('modal-reset').classList.add('hidden');
+        }
+
+        function executeMonthlyReset() {
+            db.attendance = db.attendance.filter(a => a.monthYear !== currentActiveMonth);
+            db.riwayat = db.riwayat.filter(r => !r.date.startsWith(currentActiveMonth));
+
+            saveDataToStorage();
+            closeResetModal();
+            updateDashboard();
+            renderRekapSantri();
+            initDaftarTidakHadirDateSelector();
+            renderRiwayatList();
+            showToast("Berhasil Reset", `Data absensi bulan ${currentActiveMonth} berhasil dihapus. Data santri aman.`, "success");
+        }
+
+        /* --- PENGATURAN, BACKUP & RESTORE --- */
+        function saveSettings() {
+            const inst = document.getElementById('setting-institution').value.trim();
+            const sys = document.getElementById('setting-system-name').value.trim();
+
+            if (!inst || !sys) {
+                showToast("Error", "Nama lembaga dan sistem tidak boleh kosong.", "error");
+                return;
+            }
+
+            db.settings.institutionName = inst;
+            db.settings.systemName = sys;
+            saveDataToStorage();
+            applySettingsToUI();
+            showToast("Berhasil", "Pengaturan berhasil disimpan.", "success");
+        }
+
+        function backupDataJSON() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(db, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `backup_absensi_santri_${getCurrentDateTime().dateStr}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+            showToast("Backup Berhasil", "File JSON backup berhasil diunduh.", "success");
+        }
+
+        function restoreDataJSON(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const parsed = JSON.parse(e.target.result);
+                    if (parsed && parsed.santri && parsed.attendance && parsed.settings) {
+                        db = parsed;
+                        saveDataToStorage();
+                        initCurrentMonthSelector();
+                        updateDashboard();
+                        renderSantriList();
+                        renderRekapSantri();
+                        initDaftarTidakHadirDateSelector();
+                        renderRiwayatList();
+                        applySettingsToUI();
+                        showToast("Restore Berhasil", "Data sistem berhasil dipulihkan dari file JSON.", "success");
+                    } else {
+                        showToast("Format Salah", "File JSON tidak sesuai struktur data absensi santri.", "error");
+                    }
+                } catch (err) {
+                    console.error(err);
+                    showToast("Error", "Gagal membaca file JSON.", "error");
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+
+        function openFullResetModal() {
+            document.getElementById('full-reset-confirm-input').value = '';
+            document.getElementById('modal-full-reset').classList.remove('hidden');
+        }
+
+        function closeFullResetModal() {
+            document.getElementById('modal-full-reset').classList.add('hidden');
+        }
+
+        function executeFullReset() {
+            const val = document.getElementById('full-reset-confirm-input').value.trim().toUpperCase();
+            if (val !== "RESET") {
+                showToast("Konfirmasi Salah", "Ketikkan kata 'RESET' dengan benar.", "error");
+                return;
+            }
+
+            localStorage.removeItem('santri_absensi_db');
+            db = {
+                settings: { institutionName: "Pondok Pesantren", systemName: "Absensi Digital Santri" },
+                santri: [...DEFAULT_SANTRI],
+                attendance: [],
+                riwayat: []
+            };
+            saveDataToStorage();
+            closeFullResetModal();
+            initCurrentMonthSelector();
+            updateDashboard();
+            renderSantriList();
+            renderRekapSantri();
+            initDaftarTidakHadirDateSelector();
+            renderRiwayatList();
+            applySettingsToUI();
+            showToast("Reset Total", "Sistem telah dikembalikan ke pengaturan awal.", "success");
+        }
+
+        /* --- TOAST NOTIFICATION HELPER --- */
+        function showToast(title, msg, type = 'success') {
+            const toast = document.getElementById('toast');
+            const toastTitle = document.getElementById('toast-title');
+            const toastMsg = document.getElementById('toast-msg');
+            const toastIcon = document.getElementById('toast-icon');
+
+            toastTitle.innerText = title;
+            toastMsg.innerText = msg;
+
+            if (type === 'success') {
+                toastIcon.className = "fa-solid fa-circle-check text-emerald-400 text-base";
+            } else if (type === 'warning') {
+                toastIcon.className = "fa-solid fa-triangle-exclamation text-amber-400 text-base";
+            } else {
+                toastIcon.className = "fa-solid fa-circle-xmark text-red-400 text-base";
+            }
+
+            toast.classList.remove('hidden');
+            setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 3500);
+        }
+    </script>
+</body>
+</html>
