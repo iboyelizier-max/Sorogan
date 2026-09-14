@@ -54,8 +54,8 @@
     <header class="bg-primary text-white shadow-md sticky top-0 z-40">
         <div class="max-w-md mx-auto px-4 py-3 flex justify-between items-center">
             <div class="flex items-center space-x-2">
-                <div class="bg-white text-primary p-1.5 rounded-lg shadow">
-                    <i class="fa-solid fa-mosque text-xl"></i>
+                <div class="bg-white text-primary p-1.5 rounded-lg shadow flex items-center justify-center w-9 h-9">
+                    <img src="polos.png" alt="Logo" class="w-full h-full object-contain">
                 </div>
                 <div>
                     <h1 id="header-institution" class="font-bold text-base leading-tight">Pondok Pesantren</h1>
@@ -63,7 +63,10 @@
                 </div>
             </div>
             <div class="flex items-center space-x-2">
-                <span id="header-date-badge" class="text-xs bg-emerald-800 px-2.5 py-1 rounded-full border border-emerald-700">--</span>
+                <div id="header-date-badge" class="text-xs bg-emerald-800 px-3 py-1.5 rounded-xl border border-emerald-700 text-center shadow-sm">
+                    <div id="header-badge-day" class="font-bold text-[13px] leading-tight text-white">--</div>
+                    <div id="header-badge-date" class="text-[10px] text-emerald-100 font-normal mt-0.5">--</div>
+                </div>
             </div>
         </div>
     </header>
@@ -186,6 +189,10 @@
                     <button onclick="initScanner()" class="flex-1 bg-primary text-white text-xs font-semibold py-2.5 rounded-xl shadow hover:bg-emerald-800 transition flex items-center justify-center space-x-1.5">
                         <i class="fa-solid fa-play"></i>
                         <span>Mulai Kamera</span>
+                    </button>
+                    <button onclick="switchCamera()" class="bg-emerald-700 text-white text-xs font-semibold px-3.5 py-2.5 rounded-xl shadow hover:bg-emerald-800 transition flex items-center justify-center space-x-1.5" title="Ganti Kamera">
+                        <i class="fa-solid fa-camera-rotate"></i>
+                        <span>Ganti Kamera</span>
                     </button>
                     <button onclick="stopScanner()" class="flex-1 bg-gray-200 text-gray-700 text-xs font-semibold py-2.5 rounded-xl shadow hover:bg-gray-300 transition flex items-center justify-center space-x-1.5">
                         <i class="fa-solid fa-stop"></i>
@@ -475,7 +482,7 @@
                 <div class="flex justify-between"><span class="text-gray-400">Kelas:</span> <span id="res-kelas" class="font-bold text-gray-800">--</span></div>
                 <div class="flex justify-between"><span class="text-gray-400">Waktu:</span> <span id="res-waktu" class="font-bold text-emerald-600">--</span></div>
             </div>
-            <button onclick="closeScanResultModal()" class="w-full bg-primary text-white text-xs font-semibold py-2.5 rounded-xl shadow hover:bg-emerald-800 transition">Tutup / Lanjutkan</button>
+            <button onclick="closeScanResultModal()" class="w-full bg-primary text-white text-xs font-semibold py-2.5 rounded-xl shadow hover:bg-emerald-800 transition">Lanjutkan</button>
         </div>
     </div>
 
@@ -556,6 +563,7 @@
         let html5QrCode = null;
         let isScannerRunning = false;
         let currentActiveMonth = "";
+        let currentFacingMode = "environment"; // Default rear camera
 
         // Days mapping for attendance: Jum'at, Sabtu, Ahad, Selasa
         const VALID_ATTENDANCE_DAYS = ["Friday", "Saturday", "Sunday", "Tuesday"];
@@ -669,8 +677,9 @@
         function updateDashboard() {
             const dt = getCurrentDateTime();
             
-            // Header date badge
-            document.getElementById('header-date-badge').innerText = `${dt.dayNameId}, ${dt.formattedDateReadable}`;
+            // Header date card badge
+            document.getElementById('header-badge-day').innerText = dt.dayNameId;
+            document.getElementById('header-badge-date').innerText = dt.formattedDateReadable;
             document.getElementById('current-day-badge').innerText = dt.dayNameId;
 
             // Status Banner Check
@@ -741,7 +750,9 @@
             placeholder.style.display = 'flex';
             placeholder.innerHTML = '<i class="fa-solid fa-spinner text-4xl animate-spin text-emerald-400"></i><p class="text-xs">Mengaktifkan kamera...</p>';
 
-            html5QrCode = new Html5Qrcode("reader");
+            if (!html5QrCode) {
+                html5QrCode = new Html5Qrcode("reader");
+            }
             
             // Optimized config for high speed detection and mobile usage
             const config = { 
@@ -753,26 +764,27 @@
                 }
             };
 
-            // Prioritize environment (rear) camera automatically
             html5QrCode.start(
-                { facingMode: "environment" },
+                { facingMode: currentFacingMode },
                 config,
                 onScanSuccess,
                 onScanError
             ).then(() => {
                 isScannerRunning = true;
                 placeholder.style.display = 'none';
-                document.getElementById('scan-status-badge').innerText = "Kamera Aktif";
+                document.getElementById('scan-status-badge').innerText = "Kamera Aktif (" + (currentFacingMode === "environment" ? "Belakang" : "Depan") + ")";
                 document.getElementById('scan-status-badge').className = "text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-medium";
             }).catch(err => {
-                console.warn("Environment camera failed, trying fallback camera...", err);
-                // Fallback to any available camera if environment camera is not accessible
+                console.warn("Camera start failed with mode " + currentFacingMode, err);
+                // Fallback attempt
+                const fallbackMode = currentFacingMode === "environment" ? "user" : "environment";
                 html5QrCode.start(
-                    { facingMode: "user" },
+                    { facingMode: fallbackMode },
                     config,
                     onScanSuccess,
                     onScanError
                 ).then(() => {
+                    currentFacingMode = fallbackMode;
                     isScannerRunning = true;
                     placeholder.style.display = 'none';
                     document.getElementById('scan-status-badge').innerText = "Kamera Aktif";
@@ -798,7 +810,33 @@
             }
         }
 
+        function switchCamera() {
+            if (!html5QrCode) return;
+            
+            // Toggle facing mode
+            currentFacingMode = currentFacingMode === "environment" ? "user" : "environment";
+            
+            if (isScannerRunning) {
+                html5QrCode.stop().then(() => {
+                    isScannerRunning = false;
+                    initScanner();
+                }).catch(err => {
+                    console.error("Failed to stop for camera switch", err);
+                    initScanner();
+                });
+            } else {
+                initScanner();
+            }
+        }
+
         function onScanSuccess(decodedText) {
+            // PAUSE / STOP scanner immediately on successful scan to prevent multiple reads
+            if (html5QrCode && isScannerRunning) {
+                html5QrCode.pause();
+                isScannerRunning = false;
+                document.getElementById('scan-status-badge').innerText = "Scanner Dijeda (Paused)";
+                document.getElementById('scan-status-badge').className = "text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-medium";
+            }
             processAbsensiCode(decodedText.trim());
         }
 
@@ -903,6 +941,19 @@
 
         function closeScanResultModal() {
             document.getElementById('modal-scan-result').classList.add('hidden');
+            // Resume scanner when popup is closed via "Lanjutkan"
+            if (html5QrCode) {
+                html5QrCode.resume().then(() => {
+                    isScannerRunning = true;
+                    document.getElementById('scan-status-badge').innerText = "Kamera Aktif (" + (currentFacingMode === "environment" ? "Belakang" : "Depan") + ")";
+                    document.getElementById('scan-status-badge').className = "text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-medium";
+                }).catch(err => {
+                    console.warn("Resume failed, re-initializing scanner...", err);
+                    initScanner();
+                });
+            } else {
+                initScanner();
+            }
         }
 
         /* --- DATA SANTRI MANAGEMENT --- */
